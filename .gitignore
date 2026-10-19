@@ -1,0 +1,19 @@
+# secrets / local config
+.env
+.env.*
+!.env.example
+
+# dependencies and build output
+node_modules/
+dist/
+build/
+.gradle/
+
+# raw run output (may contain hostnames or identifiers)
+results/raw/
+*.jsonl
+
+# editors / OS
+.idea/
+.vscode/
+.DS_Store
