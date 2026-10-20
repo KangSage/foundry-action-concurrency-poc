@@ -12,7 +12,7 @@ Palantir Foundry의 **TS v2 Function-backed Action**에서 두 가지를 확인�
 | 경로 | 내용 |
 |------|-----|
 | `docs/design.md` | 질문, 미지수(U1–U5), 객체 모델, Action/Function 설계, 실험(E0–E6), 불변식, 결과 해석 |
-| `docs/ai-harness.md` | AI 코딩 도우미 규칙: 설계 잠금 + 모름 먼저 (PLAN 14, 15) |
+| `docs/ai-harness.md` | AI 코딩 도우미 규칙: slop, merge, 설계 잠금, 모름 먼저 (PLAN 12~15) |
 | `scripts/check-public-safe.sh` | 커밋 전에 비공개 정보가 섞이지 않았는지 검사 |
 | `functions/` | (예정) TS v2 함수 소스 |
 | `harness/` | (예정) Node 20 동시성 하네스 |
