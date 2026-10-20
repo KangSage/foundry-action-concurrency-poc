@@ -36,6 +36,15 @@ md 규칙은 AI 가 무시할 수 있다. 명령(lint, test)은 무시 못 한�
 - **slop.sh**: 컨테이너에 있는 linter 를 `which` 로 찾아 씀 (오프라인이라 설치 금지). 없으면 `rg` 로 `console.log`, 주석 처리된 코드, `TODO`, `any` 타입, 빈 `catch` 를 찾아 경로:줄 출력, exit 1.
 - AGENTS.md 1줄: 코드 고칠 땐 lean-code, 끝나면 slop.sh 0 될 때까지, 그 다음 verify-done.
 
+### 과잉 검증 막기
+
+12 의 "확인" 은 테스트를 늘리는 장치가 아니다. 거짓 완료만 막는다.
+
+- 확인 명령은 시작 전에 **1개**만 정한다. 새 테스트 파일은 만들지 않는다.
+- verify-done 은 그 1개를 다시 실행할 뿐이다. 테스트 양은 PLAN 14 를 따른다 (demo = 1개, 평소 = 정상 1, 실패 1, 경계 1).
+- slop.sh 는 테스트가 아니다. 검색이라 몇 초면 끝난다.
+- slop.sh 가 0 이 안 되면 2번 고치고 멈추고 질문한다. 끝없이 고치지 않는다.
+
 규칙 늘리기: AI 코드에서 싫은 패턴을 볼 때마다 slop.sh 에 1개 추가.
 
 ## PLAN 13. merge 사고 방지
@@ -177,7 +186,7 @@ Foundry 문서는 개념만 많고 "이렇게 하면 이렇게 된다" 가 적�
 PLAN.md 끝에 추가 (한 번):
 
 ```
-12 slop: skill lean-code(모르면 질문, 요청한 줄만, 새 파일/추상화 금지, 표준 library 우선, 시작 전 확인 명령). skill verify-done(완료 전 확인 명령 새로 실행, 결과 붙임, "될 거/아마" 금지). scripts/slop.sh: which 로 있는 linter 쓰고(설치 금지) 없으면 rg 로 console.log, 주석 코드, TODO, any, 빈 catch → 경로:줄, exit 1. AGENTS.md 에 1줄: 코드 고칠 땐 lean-code, 끝나면 slop.sh 0 될 때까지, 그 다음 verify-done.
+12 slop: skill lean-code(모르면 질문, 요청한 줄만, 새 파일/추상화 금지, 표준 library 우선, 시작 전 확인 명령 1개 정함, 새 테스트 파일 금지). skill verify-done(완료 전 그 확인 명령 1개만 다시 실행, 결과 붙임, "될 거/아마" 금지, 테스트 추가 금지. 테스트 양은 14 를 따름). slop.sh 는 테스트 아님(검색만). 0 안 되면 2번 고치고 멈추고 질문. scripts/slop.sh: which 로 있는 linter 쓰고(설치 금지) 없으면 rg 로 console.log, 주석 코드, TODO, any, 빈 catch → 경로:줄, exit 1. AGENTS.md 에 1줄: 코드 고칠 땐 lean-code, 끝나면 slop.sh 0 될 때까지, 그 다음 verify-done.
 확인: console.log 1줄 넣고 sh scripts/slop.sh; echo $? → 1. 지우면 0.
 
 13 merge: skill safe-merge(백업 브랜치, 충돌 파일 1개씩, 양쪽 git log 의도 확인, 결과 줄은 양쪽에 있던 줄만, 새 코드 필요하면 멈추고 질문, lock 파일 금지). scripts/merge-check.sh: 머지 commit 에서 git show --cc HEAD | grep '^++[^+]' 0줄 + 충돌 마커 0개 아니면 exit 1. AGENTS.md 1줄: 충돌은 safe-merge 로만.
