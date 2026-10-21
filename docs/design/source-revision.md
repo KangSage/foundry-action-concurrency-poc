@@ -41,7 +41,7 @@ flowchart LR
 
 - 원천 리비전 폴더와 내부 폴더 분리. 내부 → 원천 리비전 폴더로 쓰기 없음.
 - 연동 원천이 여러 개: REVISION · HEAD · RECEIPT 모두 원천별 1세트. dataset 1개는 transform 1개만 쓸 수 있어서 RECEIPT도 원천별로 둔다. 한 번에 보고 싶으면 `RECEIPT_ALL` (원천별 RECEIPT union, SNAPSHOT)을 따로 만든다. 원천 목록은 설정 파일 + generated transform.
-- 권한: REVISION · HEAD는 edit-only 속성 `viewerGroupIds` (Action으로만 채움). RECEIPT는 키가 없어서 행별 그룹이 아니라 앱 사용자 그룹 상수 조건으로 본다 ([basic-info-ui.md](basic-info-ui.md) "원천 객체 권한"). transform은 권한 컬럼을 안 씀.
+- 권한: REVISION · HEAD는 edit-only 속성 `viewerGroupIds` (Action으로만 채움). RECEIPT는 키가 없어서 행별 그룹이 아니라 앱 사용자 그룹 상수 조건으로 본다 ([basic-info-ui.md](basic-info-ui.md) "Object Type과 Link", "권한 요약"). transform은 권한 컬럼을 안 씀.
 
 ## 입력 (사용자 결정, 10-21)
 
@@ -62,7 +62,7 @@ flowchart LR
 | `captured_at` | 감지 시각 |
 | `{{원천 업무 컬럼들}}` | 그 리비전의 값 |
 
-PK = `src_system` + `_` + 키 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_` + 키.
+PK = `src_system` + `_` + 키 문자열 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_` + 키 문자열. 키 문자열 규칙은 구현 명세.
 
 ## 리비전 규칙 (실행 1회)
 
@@ -91,21 +91,21 @@ PK = `src_system` + `_` + 키 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_`
 ## 리스크
 
 - 비교 컬럼 바뀌면 전체 행 새 리비전 → 비교 컬럼 목록 고정.
-- 정규화 안 하면 가짜 변경 → 해시 전 앞뒤 공백 제거 + null 기호 처리 + 타입별 문자열 형식 고정 (구현 명세 해시 규칙). 숫자 값 정규화·대소문자 정규화는 안 함.
+- 정규화 안 하면 가짜 변경 → 해시 전 앞뒤 공백 제거 + null 기호 처리 + 타입별 문자열 형식 고정 (구현 명세 해시 규칙). 숫자는 타입별 문자열 형식만 적용하고 그 밖의 변환(반올림, 단위)은 안 함. 대소문자·유니코드 정규화도 안 함.
 - `semantic_version` 올리면 비증분 + 출력 교체 → 이력 손실 ([구현 명세 "이력 보호"](source-revision-impl.md)).
 - 원천 키가 바뀌면 삭제 + 새 행으로 보임 → 원천 쪽과 키 불변 합의.
 
 ## 전환 작업
 
 - 결정 (2026-10-21): 기존 3개 데이터셋은 고치지 않는다. **새 데이터셋 3개 + 새 Object Type 3개**로 시작한다. rev는 0부터.
-- 이유: 기존 예제 값은 Function/Action으로 넣어서 edits로 남아 있다. 편집이 우선이라서 같은 PK면 새 transform 값이 가려진다. ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/))
+- 이유: 기존 예제 값은 Function/Action으로 넣어서 edits로 남아 있다. 기본 충돌 전략에서는 편집이 우선이라서 같은 PK면 새 transform 값이 가려진다 (OSv2에는 'Apply most recent value' 전략도 있음). ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/))
 - 그래서 기존 Object Type의 데이터소스만 새 데이터셋으로 바꾸지 않는다.
 
 ### 전제조건 (먼저 확인. 하나라도 아니면 멈추고 사용자에게 묻는다)
 
 | # | 조건 | 왜 | 근거 |
 |---|---|---|---|
-| P1 | 새 Object Type은 **project-based 권한 모델**로 만든다 (`{{권한 모델}}` 확인) | legacy(datasource-derived) 모델은 행 정책이 있어도 백킹 데이터셋 Viewer가 필요하다. Viewer를 주면 데이터셋에서 모든 행이 보여서 행 권한이 소용없다 | [Object security policies](https://www.palantir.com/docs/foundry/object-permissioning/object-security-policies/) |
+| P1 | 새 Object Type은 **project-based 권한 모델**로 만든다 (`{{권한 모델}}` 확인) | legacy(datasource-derived) 모델은 행 정책이 있어도 백킹 데이터셋 Viewer가 필요하다. Viewer를 주면 데이터셋에서 모든 행이 보여서 행 권한이 소용없다. project-based에서 데이터셋 Viewer 없이 정책만으로 보이는지는 문서 표현이 엇갈림 → 대상 환경에서 확인 | [Object security policies](https://www.palantir.com/docs/foundry/object-permissioning/object-security-policies/) |
 | P2 | 새 Object Type은 **OSv2** (Object Storage v2) | edit-only 속성은 OSv2에서만 된다 | [Edit-only properties](https://www.palantir.com/docs/foundry/object-link-types/edit-only-properties) |
 | P3 | `{{플랫폼 버전}}`에서 P1·P2 설정이 있다 | 공식 문서는 최신 버전 기준 | 확인 필요 |
 
@@ -114,14 +114,14 @@ PK = `src_system` + `_` + 키 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_`
 | 단계 | 할 일 | 확인 |
 |---|---|---|
 | 1 | 새 데이터셋으로 Object Type 생성. PK = REVISION `revision_pk`, HEAD `head_pk`, RECEIPT `receipt_id` | PK 중복 0 |
-| 2 | REVISION · HEAD: Create Property → Data에서 edit-only 토글을 켜고 `viewerGroupIds` (array<string>) 추가 | 속성이 edit-only로 표시됨 ([Edit-only properties](https://www.palantir.com/docs/foundry/object-link-types/edit-only-properties)) |
-| 3 | REVISION · HEAD: Object Type의 Edits 옵션 켬. UI 라벨은 `{{플랫폼 버전}}`에서 확인 필요 ([Allow editing](https://www.palantir.com/docs/foundry/object-link-types/allow-editing)) | Action 편집 가능 |
+| 2 | REVISION · HEAD: Create Property → Data에서 edit-only 토글을 켜고 `viewerGroupIds` (array<string>) 추가. 배열 타입 edit-only는 문서에 목록이 없음 (PoC 관찰로는 됨) | 속성이 edit-only로 표시됨 ([Edit-only properties](https://www.palantir.com/docs/foundry/object-link-types/edit-only-properties)) |
+| 3 | REVISION · HEAD: Ontology Manager → Datasources 탭에서 Edits 설정을 켬 (OSv2) ([Materializations](https://www.palantir.com/docs/foundry/object-edits/materializations/)) | Action 편집 가능 |
 | 4 | 행 정책. REVISION · HEAD = 현재 사용자 Group IDs includes any of `viewerGroupIds`, 또는 `{{관리자 그룹}}` 상수. RECEIPT = `{{앱 사용자 그룹}}` 상수 | 일반 사용자 0건 (REVISION · HEAD), 관리자 전체 |
 | 5 | 권한 배정 = 재동기화 Action ([basic-info-ui.md](basic-info-ui.md)) | 배정한 그룹 사용자만 보임 |
 
-- 4단계의 "OR + 상수 그룹 조건"은 공식 문서에서 못 찾음. 다른 Foundry 환경 PoC에서는 됐다 (PoC 관찰). 안 되면 `{{관리자 그룹}}` ID를 모든 행 `viewerGroupIds`에 함께 넣는다.
+- 4단계의 "OR + 상수 그룹 조건"은 공식 문서에서 못 찾음. 비공개 별도 PoC 환경에서는 됐다 (이 repo에 기록 없음 → 대상 환경에서 확인 필요). 안 되면 `{{관리자 그룹}}` ID를 모든 행 `viewerGroupIds`에 함께 넣는다.
 - 새 객체는 `viewerGroupIds`가 비어 있다 → 권한 배정 전에는 관리자만 본다. 이것이 정상이다.
-- 정책이 없는 Object Type은 백킹 데이터소스 권한을 따른다 (문서). 그래서 4단계를 빼먹으면 안 된다.
+- 정책이 없는 Object Type은 백킹 데이터소스 권한을 따른다 ([Ontology permissions](https://www.palantir.com/docs/foundry/object-permissioning/ontology-permissions)). 그래서 4단계를 빼먹으면 안 된다.
 
 기존 3개 정리 순서: Deprecated 표시 → 앱·Function을 새 타입으로 전환 → 기존 Object Type 삭제 → 기존 데이터셋 삭제 (`{{기존 데이터 보관 여부}}` 확인 후).
 

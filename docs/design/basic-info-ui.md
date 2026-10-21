@@ -17,13 +17,14 @@
 | D30 | REVISION · HEAD 행 권한은 edit-only 속성 `viewerGroupIds` + 행 정책으로 하는 결정 |
 | 고정 rev | 내부 객체가 가리키는 원천 리비전 번호 (`pinned_src_rev_no`) |
 | 재동기화 | 원천 객체의 `viewerGroupIds`를 규칙대로 다시 계산해 넣는 일 (아래 Action R) |
-| PoC 관찰 | 다른 Foundry 환경에서 직접 해 본 결과. 대상 환경에서는 다를 수 있다 |
+| PoC 관찰 | 비공개 별도 Foundry PoC 환경에서 직접 해 본 결과. 이 repo에는 기록이 없다. 대상 환경에서는 "확인 필요"로 취급한다 |
+| PoC U·Q·E 번호 | [action-concurrency PoC](../poc/action-concurrency/design.md)의 질문·실험 번호 (아직 실행 전) |
 
 ## 전제조건 (하나라도 아니면 구현을 멈추고 사용자에게 묻는다)
 
 | # | 조건 | 왜 | 근거 |
 |---|---|---|---|
-| P1 | 원천 Object Type 3개와 내부 엔티티, PIN_HISTORY는 project-based 권한 모델 | legacy 모델은 행 정책이 있어도 백킹 데이터셋 Viewer가 필요하다. 그러면 데이터셋에서 모든 행이 보인다 | [Object security policies](https://www.palantir.com/docs/foundry/object-permissioning/object-security-policies/) |
+| P1 | 원천 Object Type 3개와 내부 엔티티, PIN_HISTORY는 project-based 권한 모델 | legacy 모델은 행 정책이 있어도 백킹 데이터셋 Viewer가 필요하다. 그러면 데이터셋에서 모든 행이 보인다. project-based에서 데이터셋 Viewer 없이 정책만으로 보이는지는 문서 표현이 엇갈림 → 테스트 13으로 확인 | [Object security policies](https://www.palantir.com/docs/foundry/object-permissioning/object-security-policies/) |
 | P2 | 위 Object Type이 모두 OSv2 | edit-only 속성은 OSv2에서만 된다 | [Edit-only properties](https://www.palantir.com/docs/foundry/object-link-types/edit-only-properties) |
 | P3 | `{{플랫폼 버전}}`에 P1·P2 설정이 있다 | 공식 문서는 최신 버전 기준 | 확인 필요 |
 | P4 | `{{키당 내부 객체 수}}` = 1 | 화면 1개 = 내부 객체 1개 전제 | 사용자 결정 |
@@ -37,7 +38,7 @@
 - 원천 상태는 판정표 1개로 정한다. 배지는 항상 보인다.
 - 리비전 올리기 = Action ②. HEAD와 비교해 보여 주고, 사유를 받고, 이력을 남긴다.
 - 원천 객체 권한 = Action R (재동기화).
-- 원천 값은 앱에서 편집하지 않는다 (D4, D7). 편집하면 이후 데이터셋 값이 가려진다. ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/))
+- 원천 값은 앱에서 편집하지 않는다 (D4, D7). 기본 충돌 전략에서는 편집하면 이후 데이터셋 값이 가려진다. ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/))
 
 ## 화면 흐름
 
@@ -54,7 +55,7 @@ flowchart TD
 - 키 목록 = `{{키 목록 출처}}`. 일반 사용자는 행 권한이 있는 내부 객체 목록에서 고른다. 아직 내부 객체가 없는 키는 HEAD에서 고르는데, HEAD 전체는 관리자 그룹만 보므로 생성 권한자만 고를 수 있다.
 - 내부 객체 찾기: 내부 PK를 원천 키로 만들 수 있으면 PK로 1건 조회. 아니면 `src_system` + `{{KEY}}` 속성으로 검색. 결과 0건, 1건, 2건 이상을 위 그림처럼 나눈다.
 - 0건 = "없음" 또는 "권한 없음". 화면은 둘을 구분하지 않고 같은 문구를 쓴다.
-- 생성 버튼을 보일지: Action ⓪을 검증만 모드로 호출해 결과가 VALID이면 보인다 (PoC 관찰: `options.mode: VALIDATE_ONLY`). ([Apply action](https://www.palantir.com/docs/foundry/api/v2/ontologies-v2-resources/actions/apply-action/))
+- 생성 버튼을 보일지: Action ⓪을 검증만 모드로 호출해 결과가 VALID이면 보인다 (PoC 관찰: `options.mode: VALIDATE_ONLY`). 이때 파라미터는 규칙을 통과하는 `{{검증용 자리 값}}`을 넣는다. 검증만 모드가 제출 조건·파라미터 검증만 보는지, 함수 단계까지 실행하는지는 확인 필요. ([Apply action](https://www.palantir.com/docs/foundry/api/v2/ontologies-v2-resources/actions/apply-action/))
 - 데모 경로는 `{{데모 모드 스위치}}`가 켜졌을 때만 쓴다.
 
 ## 화면 영역
@@ -112,7 +113,8 @@ flowchart LR
 
 - Function-backed Action의 함수는 **제출한 사용자 권한**으로 객체를 읽는다. 행 정책에 가린 객체는 함수도 못 본다 (PoC 관찰).
 - 객체를 편집하려면 제출자가 그 Object Type을 볼 수 있어야 한다. 행이 안 보이는 객체를 편집할 수 있는지는 문서에 없다 → 확인 필요.
-- 그래서 다른 사람의 객체를 읽거나 쓰는 Action(⓪의 중복 확인, R)은 제출자가 `{{관리자 그룹}}`이어야 한다.
+- 그래서 다른 사람의 객체를 읽거나 쓰는 Action(⓪, R, `{{권한 변경 Action}}`)은 제출 조건이 `{{관리자 그룹}}` 안이어야 한다.
+- Action 설정 (⓪ ① ② R 공통): Write mode = Batched writes, Isolation = Snapshot isolation, 일시 오류 재시도 = 끔. PoC 결과가 이 설정에서만 유효하기 때문 ([action-concurrency PoC](../poc/action-concurrency/design.md) §3). `{{플랫폼 버전}}`에 이 설정이 있는지 확인 필요.
 
 ## Action ⓪ 내부 객체 만들기
 
@@ -129,7 +131,7 @@ flowchart LR
 3. 같은 키의 내부 객체를 찾는다. 있으면 거부 ("이미 있음. 새로 불러오기").
 4. 내부 객체 생성 (위 표의 처음 값).
 5. PIN_HISTORY 1건 (이전 rev = 없음, 새 rev = 고정 rev, 사유 = "생성", `viewerGroupIds` = 내부 객체 값).
-6. Action R의 계산을 이 키에 실행 (같은 함수 코드).
+6. Action R의 계산을 이 키에 실행 (같은 함수 코드). 같은 함수 안에서 만든 객체는 아직 검색에 안 나온다 → 검색 결과에 4단계 객체의 새 `viewerGroupIds`를 직접 더해 합집합을 만든다.
 
 - 제출 조건: `{{생성 권한 그룹}}`. 이 그룹은 `{{관리자 그룹}}` 안에 있어야 한다 (3·6단계 때문).
 - 확인 필요: 같은 키를 두 사람이 동시에 만들 때 결과 (아래 동시성 표).
@@ -157,7 +159,7 @@ flowchart LR
 |---|---|
 | Action ⓪ 안에서 | Action ⓪ 6단계 |
 | transform이 새 REVISION 행을 만들 때 | Automate (아래) |
-| 내부 객체 권한이 바뀔 때 | `{{권한 변경 Action}}`이 끝에 같은 계산 실행 |
+| 내부 객체 권한이 바뀔 때 | `{{권한 변경 Action}}`이 끝에 같은 계산 실행. 검색 결과의 그 객체는 옛 값이므로 빼고 새 값을 직접 넣는다 |
 | 주기 점검 (누락 대비) | Automate 시간 스케줄 `{{재동기화 주기}}` |
 
 - 제출 조건: `{{관리자 그룹}}`.
@@ -247,7 +249,7 @@ flowchart LR
 
 ## 동시성: 보장하는 것과 안 하는 것
 
-공식 문서 동작: Action 편집을 적용할 때 Foundry는 객체 버전을 검사하고, 바뀌었으면 `StaleObject` 오류를 낸다. 검사 범위는 OSv1 = 함수가 읽은 모든 객체, OSv2 = 편집 생성에 쓴 객체. ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/)) 실제로 동시 요청에서 어떻게 되는지는 아래 PoC로 확인한다. ([action-concurrency PoC](../poc/action-concurrency/design.md))
+공식 문서 동작: Action 편집을 적용할 때 Foundry는 객체 버전을 검사하고, 바뀌었으면 `StaleObject` 오류를 낸다. 검사 범위는 OSv1 = 로드한 객체 버전 전체 (속성 단위 아님, 무관한 속성 편집도 충돌), OSv2 = 편집 생성에 직접 쓴 객체. ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/)) 실제로 동시 요청에서 어떻게 되는지는 아래 PoC로 확인한다. ([action-concurrency PoC](../poc/action-concurrency/design.md))
 
 | 상황 | 이 설계가 하는 것 | 보장 수준 |
 |---|---|---|
@@ -255,7 +257,7 @@ flowchart LR
 | 두 요청이 거의 동시에 같은 `work_version`을 읽음 | `StaleObject`로 하나가 거부될 수 있다. 둘 다 성공할 **가능성**도 있다 | 보장 안 함. 확인 필요 (PoC U4) |
 | Action 하나가 여러 Object Type을 편집 (⓪: 내부 객체 + PIN_HISTORY + 원천 행, ②: 내부 객체 + PIN_HISTORY) | 한 함수에서 함께 반환 | 전부 되거나 전부 안 되는지는 확인 필요 (PoC Q1, U1, U3) |
 | 함수가 HEAD를 읽은 직후 transform이 HEAD 갱신 | 고정 rev = 그때 읽은 rev. 다음 로드에 다시 "새 리비전 있음" | REVISION 행은 안 바뀌므로 고정 값은 안 깨짐. 최신 보장은 안 함 |
-| 같은 키 내부 객체 동시 생성 (⓪) | 3단계 거부 시도 | 보장 안 함. 같은 PK 생성이 거부인지 덮어쓰기인지 확인 필요 (PoC U2) |
+| 같은 키 내부 객체 동시 생성 (⓪) | 3단계 거부 시도 | 보장 안 함. 내부 PK를 원천 키로 만들면 같은 PK 생성이 거부인지 덮어쓰기인지가 관건 (PoC U2). 내부 PK가 생성 ID면 PK 충돌이 없어서 2건이 생길 수 있다 → ⓪에서 키 slot 객체 (PK = `head_pk`)를 함께 만들어 막거나, 멈추고 묻는다 |
 
 PoC 결과에 따른 보완:
 
@@ -267,17 +269,17 @@ PoC 결과에 따른 보완:
 
 ## 권한 요약
 
-- 모든 Object Type에 행 정책이 있어야 한다. 정책이 없으면 백킹 데이터소스 권한을 따른다 (문서). 우리 데이터셋은 관리자만 보므로 일반 사용자에게 아무것도 안 보인다 (PoC 관찰과 같음).
+- 모든 Object Type에 행 정책이 있어야 한다. 정책이 없으면 백킹 데이터소스 권한을 따른다 ([Ontology permissions](https://www.palantir.com/docs/foundry/object-permissioning/ontology-permissions)). 우리 데이터셋은 관리자만 보므로 일반 사용자에게 아무것도 안 보인다 (PoC 관찰과 같음).
 - 행 정책 조건 "그룹 includes any of `viewerGroupIds`" + "`{{관리자 그룹}}` 상수"의 OR는 공식 문서에서 못 찾음. PoC 관찰로는 됐다. 안 되면 `{{관리자 그룹}}` ID를 모든 행 `viewerGroupIds`에 함께 넣는다 (Action R 2단계가 이미 넣음).
 - 필드 단위로 숨길 원천 필드: `{{숨길 필드}}`. 방식은 확인 필요.
 
 ## 테스트 시나리오
 
-모든 테스트 사용자는 `{{관리자 그룹}}`이 아니다 (1번 생성 테스트 제외). "재동기화" = Action R 실행.
+모든 테스트 사용자는 `{{관리자 그룹}}`이 아니다 (1번 생성, 16번 권한 변경은 관리자가 실행). "재동기화" = Action R 실행. 5·8·8a·8b는 Automate를 끈 상태, 17은 켠 상태에서 한다.
 
 | # | 준비 | 동작 | 기대 |
 |---|---|---|---|
-| 1 | 내부 객체 없음, 사용자 = `{{생성 권한 그룹}}` | 키 선택 | 만들기 화면. 만들면 고정 rev = HEAD rev, 배지 "최신" (S6), PIN_HISTORY 1건, 만든 사람이 바로 봄 |
+| 1 | 내부 객체 없음, 사용자 = `{{생성 권한 그룹}}` | 키 선택 → 만들기 | 고정 rev = HEAD rev, PIN_HISTORY 1건. 그 뒤 `{{초기 권한 규칙}}` 그룹의 관리자 아닌 사용자가 열면 "최신" (S6) |
 | 2 | 내부 객체 없음, 생성 권한 없음 | 키 목록 | 그 키가 목록에 없다. URL로 직접 열면 "기본 정보가 없거나 볼 권한이 없음". 데모 값 안 보임 |
 | 3 | HEAD가 DELETE인 키 | Action ⓪ | 거부 "원천에 없는 키" |
 | 4 | 고정 rev = HEAD rev | 화면 열기 | "최신", 올리기 버튼 숨김 |
@@ -288,7 +290,7 @@ PoC 결과에 따른 보완:
 | 7 | 고정 rev = HEAD rev. 값 앞뒤 공백만 바꾸고 빌드 | 화면 열기 | 새 리비전 없음, "최신" |
 | 8 | 고정 rev = HEAD rev. 값을 null → `""`로 바꾸고 빌드, 재동기화 | 화면 열기 | "새 리비전 있음" (S8), 차이 1개 |
 | 8a | 고정 rev = HEAD rev. 값 x → y 빌드, y → x 빌드, 재동기화 | 화면 열기 | S8, "값 차이 없음, 리비전 번호만 바뀜", 올리기 가능 |
-| 8b | 고정 rev = HEAD rev. 숫자·날짜 `COMPARE_COLS`가 있는 행. 입력을 안 바꾸고 다시 빌드 | 화면 열기 | 새 리비전 없음. 차이 보기 0개 (transform과 화면의 문자열 형식이 같음) |
+| 8b | 고정 rev = HEAD rev. 숫자·날짜 `COMPARE_COLS`가 있는 행. 숫자·날짜는 두고 다른 비교 필드 1개만 바꿔 빌드, 재동기화 | 화면 열기 | S8, 차이 1개 (바꾼 필드만). 숫자·날짜 필드는 차이에 안 나옴 |
 | 9 | 원천에서 행 삭제 후 빌드 | 화면 열기 | "원천에서 삭제됨" (S4). 영역 A는 고정 rev 값 그대로 |
 | 10 | 필터 밖으로 나감 | 화면 열기 | "범위 밖" (S5) |
 | 11 | 사용자 2명, 한 명이 먼저 저장 | 다른 한 명이 저장 | "다른 사람이 먼저 저장" |
@@ -320,6 +322,7 @@ PoC 결과에 따른 보완:
 | `{{키 목록 출처}}` | 화면의 키 목록 | 화면 기획 | "사용자는 키를 어디서 고르나? 내 기본 정보 목록?" |
 | `{{원천 표시 필드 목록}}` | 영역 A 필드 | 원천 스키마 + `COMPARE_COLS` | "원천 필드 중 화면에 보일 것은?" |
 | `{{내부 편집 필드 목록}}` / `{{내부 처음 필드 목록}}` / `{{형식}}` / `{{검증 규칙}}` | 영역 D·생성 필드 | 화면 기획 | "우리가 직접 입력하는 기본 정보 필드와 규칙은?" |
+| `{{검증용 자리 값}}` | 버튼 표시용 검증만 호출에 넣을 값 | Action 파라미터 규칙 | "버튼 표시 확인에 쓸 기본 입력값을 정해도 되나?" |
 | `{{데모 모드 스위치}}` | 데모 경로를 켜는 조건 | 지금 앱 코드 | "데모 화면은 어떤 조건에서만 보여야 하나?" |
 | `{{기존 내부 데이터 이관}}` | 이미 있는 데이터 처리 | 지금 앱·온톨로지 | "기존에 저장된 기본 정보가 있나? 옮겨야 하나?" |
 | `{{원천 엔티티 약어}}` / `{{내부 엔티티 약어}}` | 리비전 표시 약어 | [source-revision.md](source-revision.md) 채울 것 | "화면에 쓸 약어는?" |
