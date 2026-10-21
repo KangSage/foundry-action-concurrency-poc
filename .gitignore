@@ -17,3 +17,6 @@ results/raw/
 .idea/
 .vscode/
 .DS_Store
+
+# local business-word blocklist (the list itself is private)
+.public-safe-words

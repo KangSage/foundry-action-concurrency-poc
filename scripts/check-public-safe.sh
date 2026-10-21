@@ -15,6 +15,15 @@ rules=(
 )
 
 self="scripts/check-public-safe.sh"
+
+# Optional local blocklist of business words (git-ignored, one per line).
+words_file=".public-safe-words"
+if [[ -f "$words_file" ]]; then
+  while IFS= read -r word; do
+    [[ -z "$word" || "$word" == \#* ]] && continue
+    rules+=("business-word|$(printf '%s' "$word" | sed 's/[][\\.^$*+?(){}|/]/\\&/g')")
+  done < "$words_file"
+fi
 found=0
 
 while IFS= read -r -d '' file; do
