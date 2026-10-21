@@ -20,6 +20,7 @@ Palantir Foundry 설계 문서와 AI 프롬프트를 **공개로 공유**하는 
 - [ingest-filter](docs/design/ingest-filter.md): 외부 데이터 복사 → 필터 → 내부 마스터
 - [source-revision](docs/design/source-revision.md): 원천 행별 리비전 (REVISION · HEAD · RECEIPT), 내부 리비전과 격리
   - [source-revision-impl](docs/design/source-revision-impl.md): 구현 명세 (판정표 · 테스트 시나리오)
+- [multi-source](docs/design/multi-source.md): 모든 외부 원천에 같은 틀 (설정 목록, ROW/WHOLE 모드). 시작: [원천 점검표 프롬프트](prompts/source-inventory.md)
 
 ## PoC
 
