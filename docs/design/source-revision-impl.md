@@ -141,7 +141,7 @@
 
 ## 다음 단계 (이번 범위 밖)
 
-- REVISION · HEAD로 Object Type (PK = `revision_pk`, `head_pk`). 권한 속성은 edit-only (Action으로만).
+- REVISION · HEAD · RECEIPT로 **새** Object Type (PK = `revision_pk`, `head_pk`, `receipt_id`). 기존 Object Type 재사용 금지. 권한 속성은 edit-only (Action으로만). 단계는 [source-revision.md](source-revision.md) "전환 작업".
 - 내부 엔티티에 `pinned_src_rev_no` 속성 + "리비전 올리기" Action (담당자만).
 - 화면 "새 리비전 있음" = HEAD `src_rev_no` > `pinned_src_rev_no`.
 

@@ -18,7 +18,9 @@
 - 원천 동기화는 매번 SNAPSHOT (전체 교체) → 이력은 우리가 쌓음.
 - Foundry 트랜잭션 이력에 기대지 않음 (원천 쪽 소유, 보존 정책 확인 필요).
 
-## 데이터셋 3개 (기존 HEAD · REVISION · RECEIPT)
+## 데이터셋 3개 (새로 만든 HEAD · REVISION · RECEIPT)
+
+> 2026-10-21 변경: 기존 3개를 고치지 않고 새 데이터셋 3개를 만들었다. Object Type도 새로 만든다 (아래 "전환 작업").
 
 | 데이터셋 | 역할 | 쓰기 | 행 단위 |
 |---|---|---|---|
@@ -94,8 +96,24 @@ PK = `src_system` + `_` + 키 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_`
 
 ## 전환 작업
 
-- 지금 예제 데이터는 Function으로 넣었고 1부터 시작 → 지우고 transform으로 0부터.
-- Function/Action 값은 edits로 남고 편집이 우선 → 예제 edits 먼저 삭제 (또는 새 object type). ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/))
+- 결정 (2026-10-21): 기존 3개 데이터셋은 고치지 않는다. **새 데이터셋 3개 + 새 Object Type 3개**로 시작한다. rev는 0부터.
+- 이유: 기존 예제 값은 Function/Action으로 넣어서 edits로 남아 있다. 편집이 우선이라서 같은 PK면 새 transform 값이 가려진다. ([How user edits are applied](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied/))
+- 그래서 기존 Object Type의 데이터소스만 새 데이터셋으로 바꾸지 않는다.
+
+새 Object Type 만들기 (3개 모두):
+
+| 단계 | 할 일 | 확인 |
+|---|---|---|
+| 1 | 새 데이터셋으로 Object Type 생성. PK = REVISION `revision_pk`, HEAD `head_pk`, RECEIPT `receipt_id` | PK 중복 0 |
+| 2 | `viewerGroupIds` 속성을 컬럼 없이 추가 → edit-only | Source = User edits |
+| 3 | Datasources 탭 *Allow edits* 켬 | Action 편집 가능 |
+| 4 | 행 정책: `viewerGroupIds` includes any of 현재 사용자 그룹 OR 관리자 그룹 | 일반 사용자 0건, 관리자 전체 |
+| 5 | 권한 배정 (재동기화 Action) | 배정한 그룹 사용자만 보임 |
+
+기존 3개 정리 순서: Deprecated 표시 → 앱·Function을 새 타입으로 전환 → 기존 Object Type 삭제 → 기존 데이터셋 삭제 (`{{기존 데이터 보관 여부}}` 확인 후).
+
+- 새 객체는 `viewerGroupIds`가 비어 있다 → 권한 배정 전에는 관리자만 본다. 이것이 정상이다.
+- 확인 필요: legacy 온톨로지에서 edit-only 속성 + 행 정책 동작.
 
 ## 채울 것 (내부 AI)
 
@@ -103,6 +121,7 @@ PK = `src_system` + `_` + 키 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_`
 |---|---|---|---|
 | `{{원천 엔티티}}` | 최상위 원천 데이터 이름 | 원천 데이터셋 | "최상위 원천 데이터의 이름은?" |
 | `{{내부 엔티티}}` | 우리가 만드는 데이터 이름 | 우리 object type | "내부에서 만드는 객체 이름은?" |
+| `{{기존 데이터 보관 여부}}` | 기존 3개 데이터셋을 지울지 | 사용자 | "기존 예제 데이터셋 3개는 지워도 되나, 보관하나?" |
 | `{{원천 엔티티 약어}}` / `{{내부 엔티티 약어}}` | 화면 표시 약어 | - | "화면에 쓸 약어는?" |
 | `{{원천 코드 목록}}` | 원천별 `src_system` 값 | 연동 목록 | "연동 원천 목록과 코드는?" |
 | `{{원천 키 컬럼}}` | 원천의 업무 키 | 원천 스키마 | "원천마다 업무 키 컬럼은?" |
