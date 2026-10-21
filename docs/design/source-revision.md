@@ -28,7 +28,8 @@
 
 ```mermaid
 flowchart LR
-  SRC["원천 데이터셋 (다른 Foundry Project)"] -->|Project Reference| T["리비전 transform (전용 스케줄)"]
+  MST["내부 마스터 (ingest-filter ②)"] --> T["리비전 transform"]
+  MIR["복사본 (ingest-filter ①)"] -.->|"삭제 판정용 키"| T
   T -->|바뀐 행만 APPEND| REV["REVISION"]
   T -->|실행 기록 APPEND| RCP["RECEIPT"]
   REV --> T2["HEAD transform"] -->|SNAPSHOT| HEAD["HEAD"]
@@ -37,7 +38,7 @@ flowchart LR
 ```
 
 - 원천 리비전 폴더와 내부 폴더 분리. 내부 → 원천 리비전 폴더로 쓰기 없음.
-- 연동 원천이 여러 개: REVISION · HEAD는 원천별 1세트, RECEIPT는 공용 1개 (`src_system`으로 구분). 원천 목록은 설정 파일 + generated transform.
+- 연동 원천이 여러 개: REVISION · HEAD · RECEIPT 모두 원천별 1세트. dataset 1개는 transform 1개만 쓸 수 있어서 RECEIPT도 원천별로 둔다. 한 번에 보고 싶으면 `RECEIPT_ALL` (원천별 RECEIPT union, SNAPSHOT)을 따로 만든다. 원천 목록은 설정 파일 + generated transform.
 - 권한 속성 `viewerGroupIds`는 3개 모두 edit-only (Action으로만 채움). transform은 권한 컬럼을 안 씀.
 
 ## 입력 (사용자 결정, 10-21)
@@ -63,7 +64,7 @@ PK = `src_system` + `_` + 키 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_`
 
 ## 리비전 규칙 (실행 1회)
 
-1. 원천 전체 (`snapshot_inputs`) + 이전 REVISION 출력 (`output.dataframe('previous')`) 읽기. ([Create a historical dataset](https://www.palantir.com/docs/foundry/transforms-python/create-historical-dataset))
+1. 내부 마스터 · 복사본 전체 (`snapshot_inputs`) + 이전 REVISION 출력 (`output.dataframe('previous')`) 읽기. ([Create a historical dataset](https://www.palantir.com/docs/foundry/transforms-python/create-historical-dataset))
 2. 키별 최신과 `row_hash` 비교:
    - 새 키 → 0, INSERT
    - 해시 다름 → +1, UPDATE
@@ -74,7 +75,9 @@ PK = `src_system` + `_` + 키 + `_` + `src_rev_no`. HEAD PK = `src_system` + `_`
 3. 바뀐 행 REVISION APPEND + 실행 기록 RECEIPT APPEND.
 4. HEAD 재계산.
 
-확인 필요: incremental transform 1개가 출력 2개를 같이 쓰기. 안 되면 RECEIPT 분리.
+확인 필요: incremental transform 1개가 출력 2개를 같이 쓰기. 안 되면 RECEIPT를 별도 transform으로.
+
+구현: [source-revision-impl.md](source-revision-impl.md)
 
 ## 화면 표시 (구분)
 

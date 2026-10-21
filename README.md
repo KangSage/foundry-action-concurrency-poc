@@ -12,12 +12,14 @@ Palantir Foundry 설계 문서와 AI 프롬프트를 **공개로 공유**하는 
 | `docs/poc/` | 합성 PoC 설계와 결과 |
 | `docs/harness/` | AI 코딩 도우미 규칙 (설계 잠금, 모름 먼저) |
 | `prompts/` | 내부 AI에 그대로 붙여 넣는 프롬프트 |
+| `examples/` | 설계 문서의 참고 코드와 합성 데이터 테스트 |
 | `scripts/check-public-safe.sh` | 커밋 전 비공개 정보 검사 |
 
 ## 설계 문서
 
 - [ingest-filter](docs/design/ingest-filter.md): 외부 데이터 복사 → 필터 → 내부 마스터
 - [source-revision](docs/design/source-revision.md): 원천 행별 리비전 (REVISION · HEAD · RECEIPT), 내부 리비전과 격리
+  - [source-revision-impl](docs/design/source-revision-impl.md): 구현 명세 + [코드·테스트](examples/source-revision/)
 
 ## PoC
 
