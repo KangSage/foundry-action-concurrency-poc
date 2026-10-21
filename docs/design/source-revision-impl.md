@@ -36,12 +36,14 @@
 | 6 | `receipt_id` | string | 이번 실행의 RECEIPT id |
 | 7 | `captured_at` | timestamp | 이번 실행 시각 (UTC) |
 | 8~ | `KEEP_COLS` (키 제외) | 마스터와 같음 | 아래 판정표 |
-| 끝 | `revision_pk` | string | `src_system` + `_` + 키 + `_` + `src_rev_no` |
+| 끝 | `revision_pk` | string | `src_system` + `_` + 키 문자열 + `_` + `src_rev_no` |
+
+키 문자열 = `{{키 문자열 규칙}}` (키 타입이 문자열이 아닐 때). 이 규칙은 Action 함수가 FK를 만들 때도 똑같이 쓴다. `src_rev_no`는 마지막 `_` 뒤라서 키에 `_`가 있어도 PK가 겹치지 않는다.
 
 ## 해시 규칙 (`row_hash`)
 
 1. `COMPARE_COLS`를 정해진 순서로 하나씩 처리.
-2. 값을 문자열로 바꾸고 앞뒤 공백을 지움.
+2. 값을 문자열로 바꾸고 앞뒤 공백을 지움. 문자열 형식은 타입별로 고정: `{{타입별 문자열 형식}}` (예: 정수 = 소수점 없음, 소수 = `{{소수 형식}}`, timestamp = ISO-8601 UTC). 화면 차이 보기도 같은 형식을 쓴다 ([basic-info-ui.md](basic-info-ui.md)).
 3. null이면 고정 기호 1개로 바꿈 (빈 문자열 `""`와 달라야 함).
 4. 구분 문자 (데이터에 안 나오는 문자 1개)로 이어 붙임.
 5. sha256 hex.
@@ -58,9 +60,10 @@
 | 있음 | 있음 | 최신 = 사라짐 | REINSERT | 최신 + 1 | 마스터 값 |
 | 있음 | 있음 | 해시 다름 | UPDATE | 최신 + 1 | 마스터 값 |
 | 있음 | 있음 | 해시 같음 | (새 행 없음) | - | - |
-| 없음 | 있음 | 최신 = 사라짐 | (새 행 없음) | - | - |
-| 없음 | 있음 | 복사본에 키 있음 | OUT_OF_SCOPE | 최신 + 1 | 최신 행 값 그대로 |
-| 없음 | 있음 | 복사본에도 키 없음 | DELETE | 최신 + 1 | 최신 행 값 그대로 |
+| 없음 | 있음 | 복사본에 키 있음, 최신 ≠ OUT_OF_SCOPE | OUT_OF_SCOPE | 최신 + 1 | 최신 행 값 그대로 |
+| 없음 | 있음 | 복사본에 키 있음, 최신 = OUT_OF_SCOPE | (새 행 없음) | - | - |
+| 없음 | 있음 | 복사본에도 키 없음, 최신 ≠ DELETE | DELETE | 최신 + 1 | 최신 행 값 그대로 |
+| 없음 | 있음 | 복사본에도 키 없음, 최신 = DELETE | (새 행 없음) | - | - |
 
 새 행만 REVISION에 추가한다. 기존 행은 절대 바꾸지 않는다.
 
@@ -95,10 +98,12 @@
 | 4 | (1, x2, p), (2, y, q) | 1, 2 | (2, 2, REINSERT, y), (3, 1, DELETE, z). RECEIPT: reinsert 1, delete 1, 복사본 2, 마스터 2 |
 | 5 | (1, x2, p), (2, y, q) | 1, 2 | 없음 (3은 이미 DELETE) |
 | 6 | (1, x2, p), (2, y, `""`) | 1, 2 | (2, 3, UPDATE, y) (`q` → `""`) |
+| 7 | (1, x2, p) | 1, 2, 3 | (2, 4, OUT_OF_SCOPE, y), (3, 2, OUT_OF_SCOPE, z) (3은 DELETE였는데 복사본에 다시 나타남). RECEIPT: out_of_scope 2 |
+| 8 | (1, x2, p) | 1 | (2, 5, DELETE, y), (3, 3, DELETE, z) (OUT_OF_SCOPE였는데 복사본에서도 사라짐). RECEIPT: delete 2 |
 
-6회 뒤 확인:
-- HEAD = (1, 1, UPDATE), (2, 3, UPDATE), (3, 1, DELETE).
-- REVISION 8행. `revision_pk` 중복 0. `SYN_2_3` 있음.
+8회 뒤 확인:
+- HEAD = (1, 1, UPDATE), (2, 5, DELETE), (3, 3, DELETE).
+- REVISION 12행. `revision_pk` 중복 0. `SYN_2_3`, `SYN_3_3` 있음.
 - 매 회차 새 행의 컬럼 이름·순서 = REVISION 스키마.
 
 권장: 판정 로직을 Foundry API와 분리한 순수 함수로 만들고, 이 표를 단위 테스트로 옮긴다. 로직을 일부러 틀리게 바꾸면 테스트가 실패하는지도 한 번 본다.
@@ -137,13 +142,13 @@
 - [ ] 같은 입력으로 다시 빌드: REVISION 행 수 그대로. RECEIPT 1행 추가 (건수 모두 0).
 - [ ] HEAD 행 수 = REVISION 고유 키 수.
 - [ ] `revision_pk`, `head_pk` 중복 0.
-- [ ] 우리 Foundry Project 권한: 관리자 외 사용자가 dataset을 못 봄 (퀵서치 포함).
+- [ ] 우리 Foundry Project 권한: 관리자 외 사용자가 dataset을 못 봄 (퀵서치 포함). 사용자는 Object Type 행 정책으로만 본다 → project-based 권한 모델이 전제 ([source-revision.md](source-revision.md) 전제조건 P1).
 
 ## 다음 단계 (이번 범위 밖)
 
 - REVISION · HEAD · RECEIPT로 **새** Object Type (PK = `revision_pk`, `head_pk`, `receipt_id`). 기존 Object Type 재사용 금지. 권한 속성은 edit-only (Action으로만). 단계는 [source-revision.md](source-revision.md) "전환 작업".
 - 내부 엔티티에 `pinned_src_rev_no` 속성 + "리비전 올리기" Action (담당자만).
-- 화면 "새 리비전 있음" = HEAD `src_rev_no` > `pinned_src_rev_no`.
+- 화면 "새 리비전 있음" = HEAD `src_rev_no` > `pinned_src_rev_no`. 단 삭제·범위 밖이 먼저다. 상세는 [basic-info-ui.md](basic-info-ui.md) 상태 판정표.
 
 ## 채울 것 (내부 AI)
 
@@ -153,4 +158,6 @@
 | `KEY` | 원천 업무 키 컬럼 | 내부 마스터 스키마 | "행을 구분하는 키 컬럼은?" |
 | `COMPARE_COLS` | 바뀌면 리비전이 되는 컬럼 | 내부 마스터 스키마 | "어느 컬럼이 바뀌면 새 리비전인가?" |
 | `KEEP_COLS` | 보관할 컬럼 | 내부 마스터 스키마 | "어느 컬럼을 보관하나? 전부?" |
-| `{{원천코드}}` · 경로 | dataset 위치 | ingest-filter와 같음 | - |
+| `{{원천코드}}` · 경로 | dataset 위치 | ingest-filter와 같음 | "원천 코드와 dataset 경로는?" |
+| `{{키 문자열 규칙}}` | 키가 문자열이 아닐 때 문자열로 바꾸는 법 | 내부 마스터 스키마 (키 타입) | "키 컬럼 타입은? 숫자면 앞에 0을 붙이나?" |
+| `{{타입별 문자열 형식}}` / `{{소수 형식}}` | 해시·화면 비교용 문자열 형식 | `COMPARE_COLS` 타입 | "비교 컬럼에 소수·날짜가 있나? 소수는 몇 자리로 보나?" |
