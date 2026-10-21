@@ -1,7 +1,7 @@
 # AI 코딩 하네스: slop, merge, 설계 잠금, 모름 먼저
 
 > 2026-10-20 · Foundry 에서 AI 코딩 도우미와 일할 때 쓰는 규칙 (PLAN 12~15).
-> 이 PoC 의 [docs/design.md](design.md) 처럼 "미지수 먼저, 설계 확정 후 실행" 을 AI 에게 강제하는 방법이다.
+> 이 PoC 의 [docs/poc/action-concurrency/design.md](../poc/action-concurrency/design.md) 처럼 "미지수 먼저, 설계 확정 후 실행" 을 AI 에게 강제하는 방법이다.
 
 AI 가 쓰레기 코드를 남기는 문제, 머지하다 코드를 지어내는 문제, 급할 때 설계를 버리는 문제, 그리고 문서가 흐려서 테스트로 설계를 채우는 문제를 막는다.
 

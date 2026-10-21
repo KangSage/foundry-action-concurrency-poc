@@ -1,27 +1,34 @@
-# foundry-action-concurrency-poc
+# foundry-design-notes
 
-Palantir Foundry의 **TS v2 Function-backed Action**에서 두 가지를 확인하는 최소 합성 PoC다.
+Palantir Foundry 설계 문서와 AI 프롬프트를 **공개로 공유**하는 저장소다.
+업무 내용은 넣지 않는다. 업무에 따라 달라지는 값은 `{{빈칸}}`으로 두고, 업무를 아는 쪽(사람 또는 내부 AI)이 자기 환경에서 채운다.
 
-1. 고정 PK의 `Scope` 객체와 요청별 `Receipt` 객체를 **한 edit batch**로 원자적으로 저장할 수 있는가
-2. 같은 Scope에 대해 **동시 최초 생성 / 오래된 기대버전 / 같은 요청 재시도**를 하면 충돌·원자성·멱등성이 실제로 어떻게 나타나는가
-
-상태: **설계만 있음(미실행).** 설계는 [docs/design.md](docs/design.md)에 있다.
-
-## 구성 (예정)
+## 구조
 
 | 경로 | 내용 |
 |------|-----|
-| `docs/design.md` | 질문, 미지수(U1–U5), 객체 모델, Action/Function 설계, 실험(E0–E6), 불변식, 결과 해석 |
-| `docs/ai-harness.md` | AI 코딩 도우미 규칙: slop, merge, 설계 잠금, 모름 먼저 (PLAN 12~15) |
-| `scripts/check-public-safe.sh` | 커밋 전에 비공개 정보가 섞이지 않았는지 검사 |
-| `functions/` | (예정) TS v2 함수 소스 |
-| `harness/` | (예정) Node 20 동시성 하네스 |
-| `results/` | (예정) 익명화된 결과표. 원시 JSONL은 커밋하지 않음 |
+| `AGENTS.md` | 이 저장소의 문서를 읽는 AI 규칙 (빈칸 채우기, 채운 값 커밋 금지) |
+| `docs/design/` | 기능별 설계. 문서마다 끝에 "채울 것" 표 |
+| `docs/poc/` | 합성 PoC 설계와 결과 |
+| `docs/harness/` | AI 코딩 도우미 규칙 (설계 잠금, 모름 먼저) |
+| `prompts/` | 내부 AI에 그대로 붙여 넣는 프롬프트 |
+| `scripts/check-public-safe.sh` | 커밋 전 비공개 정보 검사 |
+
+## 설계 문서
+
+- [ingest-filter](docs/design/ingest-filter.md): 외부 데이터 복사 → 필터 → 내부 마스터
+- [source-revision](docs/design/source-revision.md): 원천 행별 리비전 (REVISION · HEAD · RECEIPT), 내부 리비전과 격리
+
+## PoC
+
+- [action-concurrency](docs/poc/action-concurrency/design.md): TS v2 Function-backed Action의 원자성·동시성 합성 PoC (설계만, 미실행)
 
 ## 공개 저장소 규칙
 
-- 데이터와 이름은 모두 합성이다(`Syn*`). 실제 조직의 데이터, 이름, 화면은 넣지 않는다.
+- 업무 용어, 조직·사람 이름, 실제 컬럼명, 숫자는 넣지 않는다. 중립 이름과 `{{빈칸}}`을 쓴다.
+- 데이터와 이름이 필요하면 합성(`Syn*`)으로 만든다.
 - Foundry 호스트명, 리소스 식별자(`ri.*`), 토큰, 계정 이메일은 커밋하지 않는다. 실행 설정은 `.env`(git 무시)로만 넣는다.
+- 업무 단어 차단 목록은 `.public-safe-words`(git 무시)에 한 줄에 하나씩 둔다. 목록 자체가 업무를 드러내기 때문이다.
 - 커밋 전에 검사 스크립트를 실행한다.
 
 ```bash
