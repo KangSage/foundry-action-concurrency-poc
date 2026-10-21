@@ -1,4 +1,4 @@
-# S1 외부 데이터 가져오기 → 필터 → 내부 마스터 (공개용, 구현 명세)
+# ingest-filter: 외부 데이터 가져오기 → 필터 → 내부 마스터 (구현 명세)
 
 > 퍼블릭 repo 공유용. 업무 내용은 `{{빈칸}}`.
 > **내부 AI에게:** 맨 아래 "채울 것" 표를 먼저 채운다. 모르면 사용자에게 표의 질문을 묻는다. 채운 값은 퍼블릭 repo에 다시 올리지 않는다.
@@ -34,18 +34,14 @@ flowchart LR
 - 출력 = 매번 전체 교체 (SNAPSHOT). 변환·필터 없음. 스키마 그대로.
 - 원천이 Object Type이면: 그 타입에 사용자 편집이 꺼져 있으면 백킹 dataset을 읽음. 편집이 켜져 있으면 Materialization을 읽음. ([Materializations](https://www.palantir.com/docs/foundry/object-edits/materializations/))
 
-```python
-from transforms.api import transform_df, Input, Output
+구현 요점 (코드는 내부 AI가 작성):
 
-
-@transform_df(
-    Output("{{우리 Foundry Project}}/raw/{{원천코드}}_mirror"),
-    source=Input("{{원천 dataset 경로}}"),
-)
-def compute(source):
-    # 그대로 복사. 여기서 고르거나 바꾸지 않는다.
-    return source
-```
+| 항목 | 값 |
+|---|---|
+| 입력 | `{{원천 dataset 경로}}` (Project Reference) |
+| 출력 | `{{우리 Foundry Project}}/raw/{{원천코드}}_mirror` |
+| 쓰기 | SNAPSHOT (매번 전체 교체) |
+| 로직 | 입력을 그대로 출력. 행 고르기·컬럼 바꾸기 없음 |
 
 ## ② 필터 transform
 
@@ -53,22 +49,15 @@ def compute(source):
 - 출력 = SNAPSHOT. 조건에 맞는 행만.
 - 컬럼은 `{{보관 컬럼 목록}}`만 남김 (전부 남겨도 됨).
 
-```python
-from pyspark.sql import functions as F
-from transforms.api import transform_df, Input, Output
+구현 요점 (코드는 내부 AI가 작성):
 
-
-@transform_df(
-    Output("{{우리 Foundry Project}}/master/{{원천코드}}_master"),
-    mirror=Input("{{우리 Foundry Project}}/raw/{{원천코드}}_mirror"),
-)
-def compute(mirror):
-    return (
-        mirror
-        .filter({{필터 조건 식}})          # 예: F.col("{{상태 컬럼}}").isin({{대상 값들}})
-        .select({{보관 컬럼 목록}})
-    )
-```
+| 항목 | 값 |
+|---|---|
+| 입력 | ①의 `raw/{{원천코드}}_mirror` 하나만 |
+| 출력 | `{{우리 Foundry Project}}/master/{{원천코드}}_master` |
+| 쓰기 | SNAPSHOT |
+| 로직 1 | `{{필터 조건}}`에 맞는 행만 남김. 예: "`{{상태 컬럼}}` 값이 `{{대상 값들}}` 중 하나" |
+| 로직 2 | `{{보관 컬럼 목록}}` 컬럼만 남김 |
 
 ## 스케줄
 
@@ -102,6 +91,6 @@ def compute(mirror):
 | `{{원천 dataset 경로}}` | 원천 dataset | 원천 Project | "가져올 원천 dataset 경로는?" |
 | `{{원천코드}}` | 원천 짧은 코드 | - | "원천 이름 약어는?" |
 | `{{내부 마스터}}` | 내부 마스터 이름 | 우리 설계 | "필터 결과 마스터 이름은?" |
-| `{{필터 조건}}` / `{{필터 조건 식}}` | 고를 행 조건 | 업무 규칙 | "어떤 조건의 행만 가져오나?" |
+| `{{필터 조건}}` · `{{상태 컬럼}}` · `{{대상 값들}}` | 고를 행 조건 | 업무 규칙 | "어떤 조건의 행만 가져오나?" |
 | `{{보관 컬럼 목록}}` | 남길 컬럼 | 원천 스키마 | "어느 컬럼을 남기나? 전부?" |
 | `{{주기}}` | 복사 주기 | 원천 동기화 주기 (History 탭) | "몇 시간마다 가져오나?" |
